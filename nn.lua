@@ -18,13 +18,13 @@ function nn:new(layerTable, learingRate)
 	setmetatable(newNN,self)
 	return newNN
 end
-function nn:propagate(batch, target)
+function nn:propagate(batch, targets)
 	-- forward propagation
 	for batchIndex = 1, #batch do
 		inputs = batch[batchIndex]
 		-- setup inputs in input layer
 		for i = 1, #inputs do
-			self.layers[1].nodes[i].value = inputs[i]
+			self.layers[1].nodes[i].values[batchIndex] = inputs[i]
 		end
 		-- loop through each layer
 		for layerIndex = 2, #self.layers do
@@ -37,7 +37,7 @@ function nn:propagate(batch, target)
 				-- number of input nodes is equal to number of nodes in previous layer
 				inputNodes = self.layers[layerIndex - 1].nodes
 				for i = 1, #inputNodes do
-					sum  = sum + inputNodes[i].values[batchIndex] * currNode.synapses[i]
+					sum = sum + inputNodes[i].values[batchIndex] * currNode.synapses[i]
 				end
 				currNode.values[batchIndex] = sigmoid(sum)
 			end
@@ -50,7 +50,7 @@ function nn:propagate(batch, target)
 		outputLayer = self.layers[#self.layers].nodes
 		for i = 1, #outputLayer do
 			guess = outputLayer[i].values[batchIndex]
-			error = target[i] - guess
+			error = targets[batchIndex][i] - guess
 			confidence = derivativeOfSigmoid(guess)
 			outputLayer[i].deltas[batchIndex] = error * confidence
 		end
@@ -69,7 +69,7 @@ function nn:propagate(batch, target)
 				for i = 1, #prevLayer do
 					bpInputNode = prevLayer[i]
 					error = error + bpInputNode.deltas[batchIndex] * bpInputNode.synapses[nodeIndex]
-					-- now adjust the synapse weights
+					-- now cache the synapse weight adjustments to be applied after calculating the net adjustment for the entire batch
 					bpInputNode.synapseAdjustments[nodeIndex] = bpInputNode.synapseAdjustments[nodeIndex] + currNode.values[batchIndex] * bpInputNode.deltas[batchIndex] * self.learingRate
 				end
 				-- to find delta, multiply error by confidence (confidence is the derivative of the value of the current node)
@@ -80,12 +80,22 @@ function nn:propagate(batch, target)
 		for nodeIndex = 1, #self.layers[2] do
 			currNode = self.layers[2].nodes[nodeIndex]
 			for synIndex = 1, #currNode.synapses do
-				currNode.synapseAdjustments[synIndex] = currNode.synapseAdjustments[synIndex] = currNode.deltas[batchIndex] * self.layers[1].nodes[synIndex]
-				currNode.synapses[synIndex] = currNode.synapses[synIndex] + currNode.delta * input * self.learingRate
+				currNode.synapseAdjustments[synIndex] = currNode.synapseAdjustments[synIndex] + currNode.deltas[batchIndex] * self.layers[1].nodes[synIndex].values[batchIndex] * self.learingRate
 			end
 		end
 	end
-	bpInputNode.synapses[nodeIndex] = bpInputNode.synapses[nodeIndex] + currNode.value * bpInputNode.delta * self.learingRate
+	-- update synapse weights using synapseAdjustments cache
+	-- loop through layers
+	for layerIndex = 2, #self.layers do
+		-- loop through nodes
+		for nodeIndex = 1, #self.layers[layerIndex].nodes do
+			-- loop through synapses
+			currNode = self.layers[layerIndex].nodes[nodeIndex]
+			for synIndex = 1, #currNode.synapses do
+				currNode.synapses[synIndex] = currNode.synapses[synIndex] + currNode.synapseAdjustments[synIndex]
+			end
+		end
+	end
 end
 
 layer = {}
@@ -99,10 +109,12 @@ end
 node = {}
 function node:new(numOfSynapses)
 	local synapses = {}
+	local synapseAdjustments = {}
 	for i = 1,numOfSynapses do
 		synapses[i] = 2 * math.random() - 1
+		synapseAdjustments[i] = 0
 	end
-	local newNode = {synapses = synapses, values = {}, deltas = {}, synapseAdjustments = {}}
+	local newNode = {synapses = synapses, values = {}, deltas = {}, synapseAdjustments = synapseAdjustments}
 	self.__index = self
 	setmetatable(newNode, self)
 	return newNode
@@ -116,20 +128,16 @@ function derivativeOfSigmoid(x)
 	return x * (1 - x)
 end
 
-
-math.randomseed(8981)
-myNetwork = nn:new({2,6,1},2)
-for iteration = 1,300000 do
-	myNetwork:propagate({0,0},{0})
-	myNetwork:propagate({1,0},{1})
-	myNetwork:propagate({0,1},{1})
-	myNetwork:propagate({1,1},{0})
+time = os.time()
+print(time)
+math.randomseed(time)
+myNetwork = nn:new({3,4,1},5)
+for iteration = 1,1000 do
+	myNetwork:propagate({{0,0,1},{1,0,1},{0,1,1},{1,1,1}},{{0},{1},{1},{0}})
 end
-myNetwork:propagate({0,0},{0})
-print("0,0,1 | " .. myNetwork.layers[3].nodes[1].value)
-myNetwork:propagate({0,1},{1})
-print("0,1,1 | " .. myNetwork.layers[3].nodes[1].value)
-myNetwork:propagate({1,0},{1})
-print("1,0,1 | " .. myNetwork.layers[3].nodes[1].value)
-myNetwork:propagate({1,1},{0})
-print("1,1,1 | " .. myNetwork.layers[3].nodes[1].value)
+print("00 | " .. myNetwork.layers[3].nodes[1].values[1])
+print("10 | " .. myNetwork.layers[3].nodes[1].values[2])
+print("01 | " .. myNetwork.layers[3].nodes[1].values[3])
+print("11 | " .. myNetwork.layers[3].nodes[1].values[4])
+
+
