@@ -18,7 +18,7 @@ function nn:new(layerTable, learingRate)
 	setmetatable(newNN,self)
 	return newNN
 end
-function nn:propagate(batch, targets)
+function nn:backPropagate(batch, targets)
 	-- forward propagation
 	for batchIndex = 1, #batch do
 		inputs = batch[batchIndex]
@@ -93,26 +93,128 @@ function nn:propagate(batch, targets)
 			currNode = self.layers[layerIndex].nodes[nodeIndex]
 			for synIndex = 1, #currNode.synapses do
 				currNode.synapses[synIndex] = currNode.synapses[synIndex] + currNode.synapseAdjustments[synIndex]
+				currNode.synapseAdjustments[synIndex] = 0
 			end
 		end
 	end
 end
+function nn:predictOutputs(batch)
+	for batchIndex = 1, #batch do
+		inputs = batch[batchIndex]
+		-- setup inputs in input layer
+		for i = 1, #inputs do
+			self.layers[1].nodes[i].values[batchIndex] = inputs[i]
+		end
+		-- loop through each layer
+		for layerIndex = 2, #self.layers do
+			currLayer = self.layers[layerIndex].nodes
+			-- loop through each node in each layer
+			for nodeIndex = 1, #currLayer do
+				currNode = currLayer[nodeIndex]
+				sum = 0
+				-- loop through each input node for each node for each layer
+				-- number of input nodes is equal to number of nodes in previous layer
+				inputNodes = self.layers[layerIndex - 1].nodes
+				for i = 1, #inputNodes do
+					--[[print("input node: ")
+					print(inputNodes[i].values[1])
+					print("synapse: ")
+					print(currNode.synapses[i])]]
+					sum = sum + inputNodes[i].values[batchIndex] * currNode.synapses[i]
+				end
+				currNode.values[batchIndex] = sigmoid(sum)
+			end
+		end
+	end
+	totalOutputs = {}
+	for batchIndex = 1, #batch do
+		outputLayer = self.layers[#self.layers]
+		currBatchOut = {}
+		for nodeIndex = 1, #outputLayer.nodes do
+			currBatchOut[nodeIndex] = outputLayer.nodes[nodeIndex].values[batchIndex]
+		end
+		totalOutputs[batchIndex] = currBatchOut
+	end
+	return totalOutputs
+end
+function nn:save(fileName)
+	-- print each synapse
+	local file, e = io.open(fileName, "w")
+	if not file then return error(e) end
+	file:write(self.learingRate .. "\n")
+	for layerIndex = 1, #self.layers do
+		file:write(#self.layers[layerIndex].nodes .. "-")
+	end
+	-- fix extra '-' because idk
+	file:write("\n")
+	for layerIndex = 2, #self.layers do
+		-- loop through nodes
+		for nodeIndex = 1, #self.layers[layerIndex].nodes do
+			-- loop through synapses
+			currNode = self.layers[layerIndex].nodes[nodeIndex]
+			for synIndex = 1, #currNode.synapses do
+				file:write(currNode.synapses[synIndex] .. "\n")
+			end
+		end
+	end
+	file:close()
+end
+function nn:load(fileName)
+	local layers = {}
+	local data = {}
+	local lineNum = 1
+	for line in io.lines(fileName) do
+		data[lineNum] = line
+		lineNum = lineNum + 1
+	end
+	local learingRate = data[1]
+	i = 1
+	for layerSize in data[2]:gmatch("%d+") do 
+		layers[i] = layer:new(layerSize)
+		i = i + 1
+	end
+	local synIndex = 3
+	for i = 1,layers[1].size do
+		layers[1].nodes[i] = node:new(0)
+	end
+	for layerIndex = 2, #layers do
+		local currLayer = layers[layerIndex]
+		local numOfSynapses = layers[layerIndex - 1].size
+		-- loop through nodes
+		for nodeIndex = 1, currLayer.size do
+			endIndex = synIndex + numOfSynapses - 1
+			currLayer.nodes[nodeIndex] = node:new(numOfSynapses, {unpack(data,synIndex,endIndex)})
+			synIndex = endIndex + 1
+		end
+	end
+	local newNN = {layers = layers, learingRate = learingRate}
+	self.__index = self
+	return setmetatable(newNN, self)
+end
 
 layer = {}
-function layer:new()
-	local newLayer = {nodes = {}}
+function layer:new(size)
+	-- size is just used when loading an nn from a file
+	local newLayer = {nodes = {}, size = size}
 	self.__index = self
 	setmetatable(newLayer, self)
 	return newLayer
 end
 
 node = {}
-function node:new(numOfSynapses)
+function node:new(numOfSynapses, synapseVals)
 	local synapses = {}
 	local synapseAdjustments = {}
-	for i = 1,numOfSynapses do
-		synapses[i] = 2 * math.random() - 1
-		synapseAdjustments[i] = 0
+	if synapseVals == nil then
+		for i = 1,numOfSynapses do
+			synapses[i] = 2 * math.random() - 1
+			synapseAdjustments[i] = 0
+		end
+	else
+		for i = 1,#synapseVals do
+			synapses[i] = synapseVals[i]
+			synapseAdjustments[i] = 0
+		end
 	end
 	local newNode = {synapses = synapses, values = {}, deltas = {}, synapseAdjustments = synapseAdjustments}
 	self.__index = self
@@ -127,17 +229,3 @@ end
 function derivativeOfSigmoid(x)
 	return x * (1 - x)
 end
-
-time = os.time()
-print(time)
-math.randomseed(time)
-myNetwork = nn:new({3,4,1},5)
-for iteration = 1,1000 do
-	myNetwork:propagate({{0,0,1},{1,0,1},{0,1,1},{1,1,1}},{{0},{1},{1},{0}})
-end
-print("00 | " .. myNetwork.layers[3].nodes[1].values[1])
-print("10 | " .. myNetwork.layers[3].nodes[1].values[2])
-print("01 | " .. myNetwork.layers[3].nodes[1].values[3])
-print("11 | " .. myNetwork.layers[3].nodes[1].values[4])
-
-
