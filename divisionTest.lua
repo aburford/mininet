@@ -1,4 +1,4 @@
-require('nn')
+require('mininet')
 nums = {}
 count = 0
 isDivisable = {}
@@ -30,8 +30,8 @@ time = os.time()
 print(time)
 math.randomseed(3)
 
-for batchSize = 1, 100 do
-	net = nn:new({2,3,1},1)
+for batchSize = 1, 255 do
+	net = mininet:new({2,3,1},1)
 	iters = 10000
 	for iteration = 1,iters do
 		-- batch by 32

@@ -1,1 +1,1 @@
-lua division.lua &> output.txt &disown
+lua divisionTest.lua &> zzz.txt &disown

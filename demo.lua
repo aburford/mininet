@@ -1,11 +1,11 @@
-require('nn')
+require('mininet')
 
 time = os.time()
 print(time)
 math.randomseed(1)
 -- 00:1 1489375471
 -- oddity: a seed of 1489372202 and 1489374325 requires learningRate < 5
-myNetwork = nn:new({3,4,1},2)
+myNetwork = mininet:new({3,4,1},2)
 for iteration = 1,10000 do
 	myNetwork:backPropagate({{0,0,1},{1,0,1},{0,1,1},{1,1,1}},{{1},{0},{0},{0}})
 end
@@ -20,7 +20,7 @@ print("11 | " .. predictions[4][1])
 print "Saving network and reopening"
 myNetwork:save("orig")
 myNetwork = nil
-loadedNet = nn:load("orig")
+loadedNet = mininet:load("orig")
 predictions = loadedNet:predictOutputs({{0,0,1},{1,0,1},{0,1,1},{1,1,1}})
 -- predictions[batch][node]
 print("00 | " .. predictions[1][1])
@@ -31,7 +31,7 @@ print("11 | " .. predictions[4][1])
 print 'another test'
 loadedNet:save("new")
 loadedNet = nil
-anotherNet = nn:load("new")
+anotherNet = mininet:load("new")
 predictions = anotherNet:predictOutputs({{0,0,1},{1,0,1},{0,1,1},{1,1,1}})
 -- predictions[batch][node]
 print("00 | " .. predictions[1][1])
