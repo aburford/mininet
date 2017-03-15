@@ -141,11 +141,10 @@ function mininet:save(fileName)
 	-- print each synapse
 	local file, e = io.open(fileName, "w")
 	if not file then return error(e) end
-	file:write(self.learingRate .. "\n")
-	for layerIndex = 1, #self.layers do
-		file:write(#self.layers[layerIndex].nodes .. "-")
+	file:write(self.learingRate .. "\n" .. #self.layers[1].nodes)
+	for layerIndex = 2, #self.layers do
+		file:write("-" .. #self.layers[layerIndex].nodes)
 	end
-	-- fix extra '-' because idk
 	file:write("\n")
 	for layerIndex = 2, #self.layers do
 		-- loop through nodes
